@@ -1,0 +1,7 @@
+Use uv for package management.
+
+`uv add <package>` to add a package.
+`uv sync` to sync the dependencies.
+`uv run <script>` to run a script.
+
+
