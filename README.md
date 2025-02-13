@@ -1,88 +1,83 @@
 # LiteLLM Retry Wrapper
 
-A robust Python wrapper for LiteLLM that provides retry mechanisms, rate limiting, and error handling for LLM API calls.
+A robust wrapper for LiteLLM with built-in retry logic and rate limiting capabilities. This package helps you handle API failures gracefully and manage your API rate limits effectively.
 
 ## Features
 
-- 🔄 Automatic retry mechanism with exponential backoff
-- ⏱️ Built-in rate limiting
-- 🎯 Configurable parameters for retries and rate limits
-- 📝 Comprehensive logging
-- 🛡️ Error handling and exception management
-- 🔧 Easy to customize and extend
+- Automatic retry with exponential backoff for failed API calls
+- Rate limiting to prevent API quota exhaustion
+- Easy integration with existing LiteLLM implementations
+- Configurable retry and rate limit parameters
 
 ## Installation
 
 ```bash
-uv pip install litellm-retry-wrapper
+pip install litellm-retry-wrapper
 ```
 
-## Quick Start
+Or with uv:
+
+```bash
+uv add litellm-retry-wrapper
+```
+
+## Usage
 
 ```python
-from call_litellm_with_retry import LiteLLMCaller
+from litellm_retry_wrapper import LiteLLMCaller
 
-# Initialize the caller
-llm_caller = LiteLLMCaller(
+# Initialize with default settings
+caller = LiteLLMCaller()
+
+# Or with custom configuration
+caller = LiteLLMCaller(
     model_name="gemini/gemini-2.0-flash",
     rpm=2000,
-    max_retries=3
+    max_retries=3,
+    min_retry_wait=4,
+    max_retry_wait=10
 )
 
-# Prepare your messages
-messages = [
-    {
-        "role": "user",
-        "content": "Write a short poem about artificial intelligence."
-    }
-]
-
-# Make the API call
-response = llm_caller.complete(
-    messages=messages,
+# Make API calls
+response = caller.complete(
+    messages=[{"role": "user", "content": "Hello!"}],
     temperature=0.7,
     max_tokens=100
 )
-
-print(response.choices[0].message.content)
 ```
 
 ## Configuration
 
-The `LiteLLMCaller` class accepts the following parameters:
-
-- `model_name`: The name of the LLM model to use (default: "gemini/gemini-2.0-flash")
+- `model_name`: The name of the model to use (default: "gemini/gemini-2.0-flash")
 - `rpm`: Rate limit in requests per minute (default: 2000)
 - `max_retries`: Maximum number of retry attempts (default: 3)
 - `min_retry_wait`: Minimum wait time between retries in seconds (default: 4)
 - `max_retry_wait`: Maximum wait time between retries in seconds (default: 10)
 
-## Environment Variables
-
-Create a `.env` file with your API keys:
-
-```env
-GEMINI_API_KEY=your_api_key_here
-```
-
 ## Development
 
-To set up the development environment:
+### Setup Development Environment
 
+1. Clone the repository:
 ```bash
-# Clone the repository
 git clone https://github.com/sanjeed5/litellm-retry-wrapper.git
 cd litellm-retry-wrapper
+```
 
-# Install dependencies
-uv venv
-source .venv/bin/activate
+2. Create a virtual environment and install dependencies:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv sync
 ```
 
-## Contributing
+### Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 

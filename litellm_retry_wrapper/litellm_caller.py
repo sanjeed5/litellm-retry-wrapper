@@ -4,16 +4,55 @@ import tenacity
 from ratelimit import limits, sleep_and_retry
 import logging
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta
+import threading
+from collections import deque
+import time
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+class SlidingWindowRateLimiter:
+    def __init__(self, max_requests: int, window_seconds: int):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = deque()
+        self.lock = threading.Lock()
+
+    def _clean_old_requests(self):
+        now = datetime.now()
+        while self.requests and (now - self.requests[0]) > timedelta(seconds=self.window_seconds):
+            self.requests.popleft()
+
+    def try_acquire(self) -> bool:
+        with self.lock:
+            now = datetime.now()
+            self._clean_old_requests()
+            
+            if len(self.requests) < self.max_requests:
+                self.requests.append(now)
+                return True
+            return False
+
+    def wait_if_needed(self):
+        while not self.try_acquire():
+            time.sleep(0.1)  # Sleep briefly before retrying
+
 class LiteLLMCaller:
+    # Default rate limits for common providers
+    DEFAULT_RATE_LIMITS = {
+        "gpt-3.5-turbo": {"rpm": 500},  # OpenAI default tier
+        "gpt-4": {"rpm": 200},          # OpenAI default tier
+        "gemini-pro": {"rpm": 600},     # Google Cloud default
+        "claude-2": {"rpm": 400},       # Anthropic estimate
+        "gemini/gemini-2.0-flash": {"rpm": 2000},
+    }
+
     def __init__(
         self,
         model_name: str = "gemini/gemini-2.0-flash",
-        rpm: int = 2000,
+        rpm: Optional[int] = None,
         max_retries: int = 3,
         min_retry_wait: int = 4,
         max_retry_wait: int = 10
@@ -23,27 +62,42 @@ class LiteLLMCaller:
         
         Args:
             model_name: The name of the model to use
-            rpm: Rate limit (requests per minute)
+            rpm: Rate limit (requests per minute). If None, uses default for model
             max_retries: Maximum number of retry attempts
             min_retry_wait: Minimum wait time between retries (seconds)
             max_retry_wait: Maximum wait time between retries (seconds)
         """
         self.model_name = model_name
+        
+        # Set appropriate rate limit based on model
+        if rpm is None:
+            # First try exact match
+            if model_name in self.DEFAULT_RATE_LIMITS:
+                rpm = self.DEFAULT_RATE_LIMITS[model_name]["rpm"]
+            else:
+                # Then try partial match
+                base_model = model_name.split('/')[-1]
+                for model_prefix, limits in self.DEFAULT_RATE_LIMITS.items():
+                    if model_prefix in base_model:
+                        rpm = limits["rpm"]
+                        break
+                rpm = rpm or 100  # Conservative default if no match
+
         self.rpm = rpm
         self.max_retries = max_retries
         self.min_retry_wait = min_retry_wait
         self.max_retry_wait = max_retry_wait
         
-        # Create rate limited completion function
-        self.rate_limited_completion = self._create_rate_limited_completion()
+        # Initialize sliding window rate limiter
+        self.rate_limiter = SlidingWindowRateLimiter(
+            max_requests=self.rpm,
+            window_seconds=60
+        )
         
-    def _create_rate_limited_completion(self):
-        """Create a rate-limited version of the completion function"""
-        @sleep_and_retry
-        @limits(calls=self.rpm, period=60)
-        def _rate_limited_completion(*args, **kwargs):
-            return completion(*args, **kwargs)
-        return _rate_limited_completion
+    def _rate_limited_completion(self, *args, **kwargs):
+        """Make a rate-limited completion call"""
+        self.rate_limiter.wait_if_needed()
+        return completion(*args, **kwargs)
     
     @tenacity.retry(
         wait=tenacity.wait_exponential(multiplier=1, min=4, max=10),
@@ -60,7 +114,7 @@ class LiteLLMCaller:
         Make a completion call with retry logic and rate limiting
         """
         try:
-            response = self.rate_limited_completion(
+            response = self._rate_limited_completion(
                 model=self.model_name,
                 messages=messages,
                 **kwargs

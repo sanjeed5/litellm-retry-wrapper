@@ -20,7 +20,7 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
+# Virtual Environment
 .env
 .venv
 env/
@@ -29,7 +29,7 @@ ENV/
 env.bak/
 venv.bak/
 
-# IDE specific files
+# IDE
 .idea/
 .vscode/
 *.swp
@@ -45,11 +45,16 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 htmlcov/
+.tox/
 
 # Distribution
 *.tar.gz
 *.whl
 
-# Logs
+# Documentation
+docs/_build/
+site/
+
+# Misc
 *.log
 logs/
