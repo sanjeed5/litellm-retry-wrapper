@@ -3,7 +3,7 @@ name = "litellm-retry-wrapper"
 version = "0.1.0"
 description = "A robust wrapper for LiteLLM with retry logic and rate limiting"
 authors = [
-    { name = "Sanjeed", email = "hi@sanjeed.in" }
+    { name = "Sanjeed", email = "hi@sanjeedm.com" }
 ]
 dependencies = [
     "litellm>=1.0.0",
